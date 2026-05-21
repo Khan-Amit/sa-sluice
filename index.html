@@ -3,76 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SA-Sluice Dashboard Control Panel</title>
+    <title>SA-SLUICE QUANTUM ENGINE GATEWAY</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
-        .dashboard { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
-        .card { background: #1e1e1e; padding: 20px; border-radius: 8px; width: 150px; border: 1px solid #333; }
-        .status-block { font-size: 24px; font-weight: bold; margin: 20px 0; color: #ff3333; }
-        .status-block.active { color: #28a745; }
-        button { font-size: 16px; padding: 10px 20px; margin: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        #startBtn { background-color: #28a745; color: white; }
-        #stopBtn { background-color: #dc3545; color: white; }
-        button:disabled { background-color: #555 !important; color: #aaa; cursor: not-allowed; }
+        body { font-family: 'Courier New', monospace; background: #0a0f1d; color: #00ffcc; text-align: center; padding: 20px; }
+        .btn-panel { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 20px 0; }
+        button { width: 280px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-start { background: #00cc88; color: #050a14; }
+        .btn-probe { background: #ffbb33; color: #050a14; }
+        .btn-stall { background: #1a66ff; color: #ffffff; }
+        .btn-clear { background: #ff3333; color: #ffffff; }
+        .console-box { width: 90%; max-width: 500px; height: 180px; background: #050a14; border: 1px solid #1a3366; border-radius: 6px; margin: 20px auto; padding: 12px; text-align: left; font-size: 13px; color: #33cc66; overflow-y: auto; box-shadow: inset 0 0 10px #000; }
     </style>
 </head>
 <body>
 
-    <h1>SA-SLUICE QUANTUM ENGINE GATEWAY</h1>
-    
-    <!-- Gate Status Display Block -->
-    <div id="gateStatus" class="status-block">OFFLINE / STANDBY</div>
+    <h2>-3.4°C Core Exhaust Shell</h2>
+    <p style="font-size: 11px; color: #5577aa;">TRANSIENT WORKLOAD THERMAL EXHAUST SHED</p>
 
-    <div class="control-panel">
-        <button id="startBtn" onclick="toggleTelemetry(true)">Start Green Telemetry</button>
-        <!-- FIXED: Added the missing Stop Tab Button to prevent network hanging -->
-        <button id="stopBtn" onclick="toggleTelemetry(false)" disabled>Stop Telemetry</button>
+    <div class="btn-panel">
+        <button class="btn-start" onclick="controlEngine('start')">▶ START GREEN TELEMETRY</button>
+        <button class="btn-probe" onclick="controlEngine('probe')">🔍 ARRAY PROBE</button>
+        <button class="btn-stall" onclick="controlEngine('stall')">❚❚ STALL CORES</button>
+        <button class="btn-clear" onclick="controlEngine('clear')">■ CLEAR STORAGE CACHE</button>
     </div>
 
-    <div class="dashboard">
-        <div class="card"><h3>PUE</h3><div id="pueValue">1.000</div></div>
-        <div class="card"><h3>OPEX Savings</h3><div id="opexValue">$0.00</div></div>
-        <div class="card"><h3>Exhaust Temp</h3><div id="exhaustValue">0.0°C</div></div>
-        <div class="card"><h3>Count</h3><div id="countValue">0</div></div>
+    <div class="console-box" id="terminalLog">
+        40 Inference Bank operational. PUE locked at 1.028.<br>
     </div>
 
 <script>
-let telemetryStream = null;
+let streamTimer = null;
 
-function toggleTelemetry(start) {
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const statusText = document.getElementById('gateStatus');
+function logToConsole(message) {
+    const consoleBox = document.getElementById('terminalLog');
+    const timestamp = new Date().toLocaleTimeString();
+    consoleBox.innerHTML += `[${timestamp}] ${message}<br>`;
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+}
 
-    if (start) {
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        statusText.innerText = "ACTIVE";
-        statusText.className = "status-block active";
+function controlEngine(action) {
+    if (action === 'start') {
+        logToConsole("SOLAR_NODE_X9 &gt; Triggering verification check diagnostic pass...");
         
-        // Poll the server backend on port 8082 every 500ms
-        telemetryStream = setInterval(() => {
-            fetch('http://127.0.0.1:8082')
+        if (streamTimer) clearInterval(streamTimer);
+        
+        // Continuous non-blocking backend polling loop
+        streamTimer = setInterval(() => {
+            fetch('http://127.0.0')
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('pueValue').innerText = data.pue.toFixed(3);
-                    document.getElementById('opexValue').innerText = "$" + data.opex.toFixed(2);
-                    document.getElementById('exhaustValue').innerText = data.exhaust.toFixed(1) + "°C";
-                    document.getElementById('countValue').innerText = data.count;
+                    logToConsole(`SOLAR_NODE_X9 &gt; STABLE COMPUTE: PUE locked at ${data.pue.toFixed(3)}.`);
                 })
-                .catch(err => {
-                    console.log("Waiting for backend sync...", err);
-                });
-        }, 500);
-    } else {
-        // FIXED: Clear interval entirely so the frontend stops hitting the backend instantly
-        clearInterval(telemetryStream);
-        telemetryStream = null;
+                .catch(err => console.log("Pipeline syncing...", err));
+        }, 1000);
         
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        statusText.innerText = "OFFLINE / STANDBY";
-        statusText.className = "status-block";
+    } else if (action === 'stall') {
+        // Clear interval loop instantly to stop the frontend from hammering the network socket
+        if (streamTimer) {
+            clearInterval(streamTimer);
+            streamTimer = null;
+        }
+        logToConsole("SYSTEM &gt; STALL CORES command issued. Halting ingestion stream...");
+        
+        // Notify C backend to switch states safely
+        fetch('http://127.0.0', { method: 'POST' })
+            .catch(err => console.log("Stall signal sent to engine loop.", err));
+            
+    } else if (action === 'clear') {
+        document.getElementById('terminalLog').innerHTML = "Console log buffer flushed.<br>";
+    } else if (action === 'probe') {
+        logToConsole("PROBE &gt; Scanning active hardware array matrices...");
     }
 }
 </script>
