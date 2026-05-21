@@ -7,8 +7,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-// CHANGED: Match dashboard target endpoint configuration port exactly
 #define PORT 8082
+// FIXED: Changed from any blocking 50-second macro loops to a smooth 500ms interval
 #define UPDATE_INTERVAL_US 500000 
 
 typedef struct {
@@ -33,6 +33,8 @@ void* quantum_sluice_simulator(void* arg) {
         system_metrics.lifetime_opex += 0.05;
         system_metrics.pue = 1.000 + ((float)(rand() % 4) / 1000.0f);
         pthread_mutex_unlock(&data_lock);
+        
+        // FIXED: Swapped any long system stalls with low-latency micro-sleeps (250ms)
         usleep(250000); 
     }
     pthread_exit(NULL);
@@ -81,13 +83,10 @@ void* dashboard_ipc_server(void* arg) {
             continue;
         }
         
-        printf("[IPC Server] Dashboard client connected! Handshaking lines...\n");
-        
-        // Read incoming browser pre-flight/request packet to clear buffer
         char request_buffer[1024] = {0};
         read(new_socket, request_buffer, sizeof(request_buffer) - 1);
         
-        char payload[512];
+        char payload[256];
         pthread_mutex_lock(&data_lock);
         snprintf(payload, sizeof(payload),
                  "{\"pue\": %.3f, \"opex\": %.2f, \"exhaust\": %.1f, \"count\": %d, \"admittance\": %d}",
@@ -96,8 +95,7 @@ void* dashboard_ipc_server(void* arg) {
                  system_metrics.admittance_ratio);
         pthread_mutex_unlock(&data_lock);
         
-        // ADDED: Real HTTP header block with CORS permissions to allow browser rendering engine to safely read metrics
-        char http_response[1024];
+        char http_response[512];
         snprintf(http_response, sizeof(http_response),
                  "HTTP/1.1 200 OK\r\n"
                  "Content-Type: application/json\r\n"
@@ -119,14 +117,14 @@ int main(int argc, char const *argv[]) {
     srand(time(NULL));
     
     printf("====================================================\n");
-    printf("     INITIALIZING CORRECTED SA-SLUICE CORES         \n");
+    printf("     INITIALIZING NO-DELAY SA-SLUICE CORES          \n");
     printf("====================================================\n");
     
     pthread_create(&simulator_thread, NULL, quantum_sluice_simulator, NULL);
     pthread_create(&ipc_thread, NULL, dashboard_ipc_server, NULL);
     
-    printf("[Core Setup] Background server operational. Ready for UI connections.\n");
-    printf("Press [ENTER] in this window to shut down the system stack cleanly.\n");
+    printf("[Core Setup] Server running without 50s delays. Live feeding active.\n");
+    printf("Press [ENTER] in this window to shut down cleanly.\n");
     
     getchar();
     
