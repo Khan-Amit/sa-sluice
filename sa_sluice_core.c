@@ -7,59 +7,37 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define PORT 8080
-#define TELEMETRY_INTERVAL_US 500000 // Send data updates every 500ms
+// CHANGED: Match dashboard target endpoint configuration port exactly
+#define PORT 8082
+#define UPDATE_INTERVAL_US 500000 
 
-// Dashboard System Parameter Metrics Structures
 typedef struct {
-    float pue;                 // Power Usage Effectiveness
-    double lifetime_opex;      // OPEX savings accumulated
-    float transient_exhaust;   // Thermal sensor telemetry
-    int scrutinized_count;     // Monitored data packets
-    int admittance_ratio;      // Channel flow throughput capacity
+    float pue;                 
+    double lifetime_opex;      
+    float transient_exhaust;   
+    int scrutinized_count;     
+    int admittance_ratio;      
 } TelemetryData;
 
-// Global engine flags
 volatile int is_pipeline_active = 1;
 pthread_mutex_t data_lock = PTHREAD_MUTEX_INITIALIZER;
 TelemetryData system_metrics = {1.000, 0.00, 24.5, 0, 100};
 
-// Forward Declarations
-void* quantum_sluice_simulator(void* arg);
-void* dashboard_ipc_server(void* arg);
-
-// 1. Core Worker Simulator Module (Simulating background workloads)
 void* quantum_sluice_simulator(void* arg) {
     (void)arg;
-    unsigned int cycle = 0;
-    
-    printf("[Backend] Quantum Sluice Engine pipeline initialization complete.\n");
-    
     while (is_pipeline_active) {
         pthread_mutex_lock(&data_lock);
-        
-        // Emulate fluctuations matching live hardware data loops
         system_metrics.scrutinized_count++;
-        system_metrics.transient_exhaust = 38.2f + ((float)(rand() % 40) / 10.0f);
-        system_metrics.admittance_ratio = 100; // Keep optimal transmission flow
-        
-        // Random micro-additions to active mock OPEX efficiency
+        system_metrics.transient_exhaust = 36.4f + ((float)(rand() % 40) / 10.0f);
+        system_metrics.admittance_ratio = 100;
         system_metrics.lifetime_opex += 0.05;
-        
-        // Sluice load calculations targeting perfect 1.000 efficiency baseline
-        system_metrics.pue = 1.000 + ((float)(rand() % 5) / 1000.0f);
-        
+        system_metrics.pue = 1.000 + ((float)(rand() % 4) / 1000.0f);
         pthread_mutex_unlock(&data_lock);
-        
-        cycle++;
-        usleep(250000); // Compute state shifts every 250ms
+        usleep(250000); 
     }
-    
-    printf("[Backend] Quantum Sluice Engine simulation stream safely stopped.\n");
     pthread_exit(NULL);
 }
 
-// 2. Data Transmission Server Module (Prevents UI Timeout Drops)
 void* dashboard_ipc_server(void* arg) {
     (void)arg;
     int server_fd, new_socket;
@@ -67,15 +45,13 @@ void* dashboard_ipc_server(void* arg) {
     int opt = 1;
     int addrlen = sizeof(address);
     
-    // Creating master socket network descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("[Socket Error] Base descriptor initialization failed");
+        perror("[Error] Socket init failed");
         pthread_exit(NULL);
     }
     
-    // Forcefully attaching socket to the communication port
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
-        perror("[Socket Error] Reuse config mapping rejected");
+        perror("[Error] Port reuse configuration rejected");
         close(server_fd);
         pthread_exit(NULL);
     }
@@ -85,13 +61,13 @@ void* dashboard_ipc_server(void* arg) {
     address.sin_port = htons(PORT);
     
     if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-        perror("[Socket Error] Local port binding failed");
+        perror("[Error] Local port binding failed");
         close(server_fd);
         pthread_exit(NULL);
     }
     
-    if (listen(server_fd, 3) < 0) {
-        perror("[Socket Error] Connection queue listener failed");
+    if (listen(server_fd, 5) < 0) {
+        perror("[Error] Listener initialization failed");
         close(server_fd);
         pthread_exit(NULL);
     }
@@ -99,81 +75,65 @@ void* dashboard_ipc_server(void* arg) {
     printf("[IPC Server] Streaming dashboard telemetry socket active on port %d\n", PORT);
     
     while (is_pipeline_active) {
-        printf("[IPC Server] Waiting for Dashboard client polling request...\n");
         new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
-        
         if (new_socket < 0) {
             if (!is_pipeline_active) break;
-            perror("[IPC Server] Handshake rejection encountered");
             continue;
         }
         
-        printf("[IPC Server] Dashboard handshake verified! Starting green telemetry pipelines.\n");
+        printf("[IPC Server] Dashboard client connected! Handshaking lines...\n");
         
-        // Loop sending live structured JSON or CSV parameters directly to UI
-        while (is_pipeline_active) {
-            char payload_buffer[512];
-            
-            pthread_mutex_lock(&data_lock);
-            snprintf(payload_buffer, sizeof(payload_buffer),
-                     "{\"pue\": %.3f, \"opex\": %.2f, \"exhaust\": %.1f, \"count\": %d, \"admittance\": %d}\n",
-                     system_metrics.pue, system_metrics.lifetime_opex, 
-                     system_metrics.transient_exhaust, system_metrics.scrutinized_count, 
-                     system_metrics.admittance_ratio);
-            pthread_mutex_unlock(&data_lock);
-            
-            // Deliver telemetry frame packet over active connection
-            if (send(new_socket, payload_buffer, strlen(payload_buffer), 0) < 0) {
-                printf("[IPC Server] Telemetry stream connection severed by target client receiver.\n");
-                break;
-            }
-            
-            usleep(TELEMETRY_INTERVAL_US);
-        }
+        // Read incoming browser pre-flight/request packet to clear buffer
+        char request_buffer[1024] = {0};
+        read(new_socket, request_buffer, sizeof(request_buffer) - 1);
+        
+        char payload[512];
+        pthread_mutex_lock(&data_lock);
+        snprintf(payload, sizeof(payload),
+                 "{\"pue\": %.3f, \"opex\": %.2f, \"exhaust\": %.1f, \"count\": %d, \"admittance\": %d}",
+                 system_metrics.pue, system_metrics.lifetime_opex, 
+                 system_metrics.transient_exhaust, system_metrics.scrutinized_count, 
+                 system_metrics.admittance_ratio);
+        pthread_mutex_unlock(&data_lock);
+        
+        // ADDED: Real HTTP header block with CORS permissions to allow browser rendering engine to safely read metrics
+        char http_response[1024];
+        snprintf(http_response, sizeof(http_response),
+                 "HTTP/1.1 200 OK\r\n"
+                 "Content-Type: application/json\r\n"
+                 "Access-Control-Allow-Origin: *\r\n"
+                 "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+                 "Connection: close\r\n\r\n"
+                 "%s", payload);
+                 
+        send(new_socket, http_response, strlen(http_response), 0);
         close(new_socket);
     }
-    
     close(server_fd);
     pthread_exit(NULL);
 }
 
-// 3. Execution Lifecycle Core Entry Point
 int main(int argc, char const *argv[]) {
     (void)argc; (void)argv;
     pthread_t simulator_thread, ipc_thread;
     srand(time(NULL));
     
     printf("====================================================\n");
-    printf("     INITIALIZING SA-SLUICE CORE CONTROL CORES     \n");
+    printf("     INITIALIZING CORRECTED SA-SLUICE CORES         \n");
     printf("====================================================\n");
     
-    // Spawning concurrent computing modules
-    if (pthread_create(&simulator_thread, NULL, quantum_sluice_simulator, NULL) != 0) {
-        fprintf(stderr, "[Fatal] Could not initiate background execution core.\n");
-        return 1;
-    }
+    pthread_create(&simulator_thread, NULL, quantum_sluice_simulator, NULL);
+    pthread_create(&ipc_thread, NULL, dashboard_ipc_server, NULL);
     
-    if (pthread_create(&ipc_thread, NULL, dashboard_ipc_server, NULL) != 0) {
-        fprintf(stderr, "[Fatal] Could not instantiate network delivery socket pipelines.\n");
-        is_pipeline_active = 0;
-        pthread_join(simulator_thread, NULL);
-        return 1;
-    }
+    printf("[Core Setup] Background server operational. Ready for UI connections.\n");
+    printf("Press [ENTER] in this window to shut down the system stack cleanly.\n");
     
-    printf("[Core Setup] Background listeners spinning. Core process fully operational.\n");
-    printf("[Action Required] Open your UI frontend app and trigger Green Telemetry now.\n\n");
-    printf("Press [ENTER] key in this terminal console frame to shut down the server stack safely.\n");
-    
-    // Hold program open until developer halts setup manually
     getchar();
     
-    printf("\n[Teardown] Graceful termination requested. Cleaning up open network links...\n");
     is_pipeline_active = 0;
-    
     pthread_join(ipc_thread, NULL);
     pthread_join(simulator_thread, NULL);
     pthread_mutex_destroy(&data_lock);
     
-    printf("[Teardown] All sa-sluice resources closed. Stack isolated safely.\n");
     return 0;
 }
