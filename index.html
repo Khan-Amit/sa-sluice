@@ -3,130 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SA-Sluice Real-Time Rack Profiler</title>
+    <title>SA-Sluice Interactive Rack Control</title>
     <style>
         body { 
             background: #060913; 
             color: #f1f5f9; 
             font-family: 'Courier New', monospace; 
-            padding: 25px; 
+            padding: 20px; 
             margin: 0;
         }
         h2 { color: #38bdf8; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 5px; letter-spacing: 1px; }
-        .system-info { margin-bottom: 25px; font-size: 13px; color: #64748b; line-height: 1.6; }
+        .system-info { margin-bottom: 20px; font-size: 13px; color: #64748b; line-height: 1.6; }
         
         .main-layout {
             display: grid;
             grid-template-columns: 320px 1fr;
-            gap: 25px;
-            margin-bottom: 25px;
+            gap: 20px;
+            margin-bottom: 20px;
         }
         
-        /* Left Column: Visual Telemetry Dial Container */
-        .dial-panel {
+        /* Left Column: Controls & Dial */
+        .control-panel {
             background: #0f172a;
             border: 1px solid #1e293b;
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            gap: 15px;
         }
-        .dial-title { font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px; }
+        .panel-section { border-bottom: 1px solid #1e293b; padding-bottom: 15px; }
+        .panel-section:last-child { border-none; padding-bottom: 0; }
+        .panel-title { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; font-weight: bold; }
         
-        /* Circular CSS Dial Gauge Graphic */
-        .dial-svg { transform: rotate(-90deg); width: 160px; height: 160px; }
-        .dial-bg { fill: none; stroke: #1e293b; stroke-width: 12; }
+        /* Circular Dial Gauge */
+        .dial-container { display: flex; justify-content: center; margin: 10px 0; }
+        .dial-svg { transform: rotate(-90deg); width: 140px; height: 140px; }
+        .dial-bg { fill: none; stroke: #1e293b; stroke-width: 10; }
         .dial-progress { 
             fill: none; 
             stroke: #06b6d4; 
-            stroke-width: 12; 
+            stroke-width: 10; 
             stroke-dasharray: 440; 
             stroke-dashoffset: 440; 
-            transition: stroke-dashoffset 0.4s ease;
+            transition: stroke-dashoffset 0.3s ease;
         }
-        .dial-label { font-size: 26px; font-weight: bold; fill: #f1f5f9; text-anchor: middle; font-family: monospace; }
+        .dial-label { font-size: 24px; font-weight: bold; fill: #f1f5f9; text-anchor: middle; font-family: monospace; }
         
-        /* Right Column: Numeric Grid Matrices */
+        /* Interactive Buttons */
+        .btn-group { display: flex; flex-direction: column; gap: 8px; }
+        button {
+            background: #1e293b;
+            color: #f1f5f9;
+            border: 1px solid #334155;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        button:hover { background: #334155; border-color: #475569; }
+        button.active-green { background: #059669; border-color: #10b981; color: white; }
+        button.active-green:hover { background: #047857; }
+        button.active-red { background: #dc2626; border-color: #ef4444; color: white; }
+        button.active-red:hover { background: #b91c1c; }
+        
+        /* Input window styling */
+        .input-group { margin-bottom: 10px; }
+        .input-group label { display: block; font-size: 11px; color: #64748b; margin-bottom: 4px; }
+        .input-window {
+            background: #020617;
+            border: 1px solid #334155;
+            color: #4ade80;
+            width: 100%;
+            padding: 6px;
+            box-sizing: border-box;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        /* Right Column: Metrics & Logs */
+        .right-panel { display: flex; flex-direction: column; gap: 20px; }
         .metrics-grid { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            grid-template-columns: repeat(3, 1fr); 
             gap: 15px; 
         }
         .card { 
             background: #0f172a; 
-            padding: 20px; 
+            padding: 15px; 
             border-radius: 8px; 
             border: 1px solid #1e293b; 
         }
-        .card-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-        .metric { font-size: 32px; font-weight: bold; color: #38bdf8; margin-top: 8px; }
+        .card-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric { font-size: 28px; font-weight: bold; color: #38bdf8; margin-top: 5px; }
         
-        /* Bottom Row: Ingestion Logging Console */
-        .log-section-title { font-size: 14px; color: #38bdf8; margin: 20px 0 10px 0; text-transform: uppercase; }
+        .log-section-title { font-size: 12px; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
         .log-container { 
             background: #020617; 
             border: 1px solid #0f172a; 
-            height: 320px; 
+            height: 380px; 
             overflow-y: auto; 
             padding: 15px; 
             border-radius: 6px;
             font-size: 12px;
             line-height: 1.7;
-            box-shadow: inset 0 4px 12px rgba(0,0,0,0.5);
         }
         .pass { color: #10b981; font-weight: bold; }
         .fail { color: #ef4444; font-weight: bold; }
+        .sys { color: #eab308; }
     </style>
 </head>
 <body>
 
-    <h2>🌊 sa-sluice // Infrastructure Screening Dashboard</h2>
+    <h2>🌊 sa-sluice // Operational Command & Control</h2>
     <div class="system-info">
         <strong>Developer / Concept Builder:</strong> © Seliim Ahmed (seliim.ahmed@gmail.com) <br>
-        <strong>Architecture:</strong> Polymorphic Zero-Copy Ingestion Gatekeeper <br>
         <strong>Core Philosophy:</strong> "All dogs are dogs, but their breeds are different."
     </div>
     
     <div class="main-layout">
-        <!-- Circular Performance Gauge -->
-        <div class="dial-panel">
-            <div class="dial-title">Resonance Load Capacity</div>
-            <svg class="dial-svg" viewBox="0 0 160 160">
-                <circle class="dial-bg" cx="80" cy="80" r="70" />
-                <circle id="gauge-fill" class="dial-progress" cx="80" cy="80" r="70" />
-                <text class="dial-label" x="80" y="90" transform="rotate(90 80 80)"><tspan id="gauge-text">0</tspan>%</text>
-            </svg>
+        <!-- Left Panel: Interactive Actions and Configuration Windows -->
+        <div class="control-panel">
+            <div class="panel-section">
+                <div class="panel-title">System Execution</div>
+                <div class="btn-group">
+                    <button id="btn-toggle" class="active-green" onclick="toggleEngine()">Start Check</button>
+                    <button id="btn-probe" onclick="runArrayProbe()">Run Array Probe</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">Resonance Telemetry</div>
+                <div class="dial-container">
+                    <svg class="dial-svg" viewBox="0 0 160 160">
+                        <circle class="dial-bg" cx="80" cy="80" r="70" />
+                        <circle id="gauge-fill" class="dial-progress" cx="80" cy="80" r="70" />
+                        <text class="dial-label" x="80" y="90" transform="rotate(90 80 80)"><tspan id="gauge-text">0</tspan>%</text>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">Data Config Window</div>
+                <div class="input-group">
+                    <label>Sluice Max Length (Bytes)</label>
+                    <input type="number" id="cfg-length" class="input-window" value="4096">
+                </div>
+                <div class="input-group">
+                    <label>Target Bridge Port</label>
+                    <input type="text" id="cfg-url" class="input-window" value="http://127.0.0.1:8081">
+                </div>
+            </div>
         </div>
 
-        <!-- Metric Scoreboards -->
-        <div class="metrics-grid">
-            <div class="card">
-                <div class="card-label">Total Scrutinized Streams</div>
-                <div id="metric-total" class="metric">0</div>
+        <!-- Right Panel: Scores and Continuous Log Outputs -->
+        <div class="right-panel">
+            <div class="metrics-grid">
+                <div class="card">
+                    <div class="card-label">Scrutinized Streams</div>
+                    <div id="metric-total" class="metric">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Admittance Efficiency</div>
+                    <div id="metric-ratio" class="metric">100%</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Sluice Status</div>
+                    <div id="metric-status" class="metric">OFFLINE</div>
+                </div>
             </div>
-            <div class="card">
-                <div class="card-label">Gate Admittance Efficiency</div>
-                <div id="metric-ratio" class="metric">100%</div>
-            </div>
-            <div class="card">
-                <div class="card-label">Active Sluice Status</div>
-                <div id="metric-status" class="metric">STANDBY</div>
+
+            <div>
+                <div class="log-section-title">Raw Wire Feed Translator Log</div>
+                <div id="telemetry-log" class="log-container"></div>
             </div>
         </div>
     </div>
 
-    <div class="log-section-title">Raw Real Data Wire Feed (Translated via Language Bridge)</div>
-    <div id="telemetry-log" class="log-container"></div>
-
     <script>
+        let isEngineRunning = false;
         let totalPackets = 0;
         let admittedPackets = 0;
+        let connectionInterval = null;
+        
         const logBox = document.getElementById('telemetry-log');
-
-        // Connects directly to the Language Bridge (bridge.c) running on port 8081
-        const BRIDGE_ENDPOINT = "http://127.0.0.1:8081"; 
 
         const breedNames = {
             1: "Linux System Log Cluster",
@@ -134,64 +199,92 @@
             3: "Compiled C++ Memory Payload"
         };
 
-        // Mathematically updates the circular progress dial
+        function writeToConsole(message, type = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            let cls = type === 'pass' ? 'class="pass"' : type === 'fail' ? 'class="fail"' : 'class="sys"';
+            logBox.innerHTML += `[${timestamp}] <span ${cls}>${message}</span><br>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
         function updateVisualDial(percentageValue) {
             const circle = document.getElementById('gauge-fill');
             const text = document.getElementById('gauge-text');
-            
-            // 2 * PI * Radius (70) = ~440 circumference unit bounds
             const circumference = 440; 
-            const clampedPct = Math.max(0, Math.min(100, percentageValue));
-            const offset = circumference - (clampedPct / 100) * circumference;
-            
+            const offset = circumference - (Math.max(0, Math.min(100, percentageValue)) / 100) * circumference;
             circle.style.strokeDashoffset = offset;
-            text.innerText = Math.round(clampedPct);
+            text.innerText = Math.round(percentageValue);
         }
 
-        // Asynchronously requests the translated data payload from your C bridge
-        async function fetchRealSluiceTelemetry() {
+        // Action: Start Check / Stop Check Button Controller
+        function toggleEngine() {
+            const btn = document.getElementById('btn-toggle');
+            if (!isEngineRunning) {
+                isEngineRunning = true;
+                btn.innerText = "Stop Engine";
+                btn.className = "active-red";
+                document.getElementById('metric-status').innerText = "STANDBY";
+                writeToConsole("⚙️ Sluice monitoring connection routine activated.");
+                
+                // Initialize asynchronous network polling
+                const endpoint = document.getElementById('cfg-url').value;
+                connectionInterval = setInterval(() => fetchRealSluiceTelemetry(endpoint), 1000);
+            } else {
+                isEngineRunning = false;
+                btn.innerText = "Start Check";
+                btn.className = "active-green";
+                document.getElementById('metric-status').innerText = "OFFLINE";
+                writeToConsole("🛑 Sluice engine data loop halted manually.");
+                clearInterval(connectionInterval);
+                updateVisualDial(0);
+            }
+        }
+
+        // Action: Run Array Probe Button Controller
+        function runArrayProbe() {
+            if (!isEngineRunning) {
+                writeToConsole("⚠️ Cannot run diagnostic probe. Engine is currently offline.", "fail");
+                return;
+            }
+            writeToConsole("⚡ Diagnostics: Triggering array loop boundary scan across core network cards...");
+        }
+
+        // Asynchronous Data Wire Engine
+        async function fetchRealSluiceTelemetry(endpoint) {
             try {
-                const response = await fetch(BRIDGE_ENDPOINT);
-                if (!response.ok) throw new Error("Bridge Offline");
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error();
                 
                 const data = await response.json();
+                const maxLengthLimit = parseInt(document.getElementById('cfg-length').value);
                 
                 totalPackets++;
-                const isPassed = data.verdict === 1;
+                
+                // Check incoming parameters against visual input configuration adjustments
+                let isPassed = data.verdict === 1 && data.measured_length <= maxLengthLimit;
                 if (isPassed) admittedPackets++;
 
-                // Update text indicators
                 document.getElementById('metric-total').innerText = totalPackets;
                 document.getElementById('metric-ratio').innerText = ((admittedPackets / totalPackets) * 100).toFixed(1) + "%";
-                document.getElementById('metric-status').innerText = isPassed ? "PROCESSING INGRESS" : "THROTTLED";
+                document.getElementById('metric-status').innerText = isPassed ? "INGRESSING" : "THROTTLED";
 
-                // Dynamically update the graphic dial gauge layout
                 const capacityPercentage = isPassed ? (data.amplitude * 100) : 0;
                 updateVisualDial(capacityPercentage);
 
-                // Identify the incoming breed structure
                 const breedLabel = breedNames[data.breed] || "Unknown Polymorphic Breed";
-                const timestamp = new Date().toLocaleTimeString();
-
-                // Format explicit wire output depending on screening results
-                let logEntry = "";
+                
                 if (isPassed) {
-                    logEntry = `[${timestamp}] <span class="pass">[PERMITTED]</span> ${breedLabel} passed screening. Size: ${data.measured_length}B | Core Resonance Capacity: ${capacityPercentage.toFixed(0)}%`;
+                    writeToConsole(`[PERMITTED] ${breedLabel} accepted. Size: ${data.measured_length}B | Core Capacity: ${capacityPercentage.toFixed(0)}%`, 'pass');
                 } else {
-                    logEntry = `[${timestamp}] <span class="fail">[DISCARDED]</span> ${breedLabel} failed parameters. Dropped instantly at boundary line to protect memory buffers.`;
+                    writeToConsole(`[DISCARDED] ${breedLabel} failed filtering limits. Dropped at gate line.`, 'fail');
                 }
-
-                logBox.innerHTML += logEntry + "<br>";
-                logBox.scrollTop = logBox.scrollHeight;
             } catch (error) {
                 document.getElementById('metric-status').innerText = "DISCONNECTED";
                 updateVisualDial(0);
             }
         }
 
-        // Continually polls your infrastructure data loop every 1000ms (1 second)
-        setInterval(fetchRealSluiceTelemetry, 1000);
-        console.log("Telemetry Interface Armed. Polling language bridge on port 8081.");
+        // Boot configuration readout
+        writeToConsole("System Initialization Ready. Configure Data parameters and tap Start Check.");
     </script>
 </body>
 </html>
