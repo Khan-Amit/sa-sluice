@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SA-Sluice Real-Time Rack Profiler</title>
+    <style>
+        body { 
+            background: #090d16; 
+            color: #e2e8f0; 
+            font-family: monospace; 
+            padding: 20px; 
+            margin: 0;
+        }
+        h2 { color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
+        .system-info { margin-bottom: 20px; font-size: 14px; color: #94a3b8; }
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 20px; 
+        }
+        .card { 
+            background: #111827; 
+            padding: 20px; 
+            border-radius: 6px; 
+            border: 1px solid #1f2937; 
+        }
+        .metric { font-size: 28px; font-weight: bold; color: #06b6d4; margin-top: 5px; }
+        .log-container { 
+            background: #030712; 
+            border: 1px solid #111827; 
+            height: 380px; 
+            overflow-y: auto; 
+            padding: 15px; 
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .pass { color: #10b981; font-weight: bold; }
+        .fail { color: #ef4444; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>🌊 sa-sluice // Infrastructure Screening Dashboard</h2>
+    <div class="system-info">
+        <strong>Concept Builder:</strong> © Seliim Ahmed (seliim.ahmed@gmail.com) <br>
+        <strong>Architecture:</strong> Polymorphic Zero-Copy Ingestion Gatekeeper
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <div>Total Scrutinized Streams</div>
+            <div id="metric-total" class="metric">0</div>
+        </div>
+        <div class="card">
+            <div>Gate Admittance Efficiency</div>
+            <div id="metric-ratio" class="metric">100%</div>
+        </div>
+        <div class="card">
+            <div>Active Sluice Status</div>
+            <div id="metric-status" class="metric">STANDBY</div>
+        </div>
+    </div>
+
+    <h4>Raw Real Data Wire Feed</h4>
+    <div id="telemetry-log" class="log-container"></div>
+
+    <script>
+        let totalPackets = 0;
+        let admittedPackets = 0;
+        const logBox = document.getElementById('telemetry-log');
+
+        const breedNames = {
+            1: "Linux System Log Cluster",
+            2: "Raw HTML Stream Parser",
+            3: "Compiled C++ Memory Payload"
+        };
+
+        // Processes actual server output data strings
+        function handleIncomingTelemetry(rawJsonString) {
+            try {
+                const data = JSON.parse(rawJsonString);
+                totalPackets++;
+                
+                const isPassed = data.verdict === 1;
+                if (isPassed) admittedPackets++;
+
+                // Update UI Metrics Elements
+                document.getElementById('metric-total').innerText = totalPackets;
+                document.getElementById('metric-ratio').innerText = ((admittedPackets / totalPackets) * 100).toFixed(1) + "%";
+                document.getElementById('metric-status').innerText = isPassed ? "PROCESSING INGRESS" : "THROTTLED";
+
+                // Parse the specific data breed structure
+                const breedLabel = breedNames[data.breed] || "Unknown Polymorphic Breed";
+                const timestamp = new Date().toLocaleTimeString();
+
+                // Format explicit layout depending on the screening outcome
+                let logEntry = "";
+                if (isPassed) {
+                    logEntry = `[${timestamp}] <span class="pass">[PERMITTED]</span> ${breedLabel} passed screening. Size: ${data.measured_length}B | Core Resonance Capacity: ${(data.amplitude * 100).toFixed(0)}%`;
+                } else {
+                    logEntry = `[${timestamp}] <span class="fail">[DISCARDED]</span> ${breedLabel} failed parameters. Dropped instantly at boundary line to protect memory buffers.`;
+                }
+
+                logBox.innerHTML += logEntry + "<br>";
+                logBox.scrollTop = logBox.scrollHeight;
+            } catch (e) {
+                console.error("Malformed binary string sequence dropped.", e);
+            }
+        }
+
+        console.log("Telemetry Interface Armed. Ready to read physical server sockets.");
+    </script>
+</body>
+</html>
