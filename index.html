@@ -1,29 +1,46 @@
-                const response = await fetch(endpoint);
-                if (!response.ok) throw new 
-                    document.getElementById('metric-ratio').innerText = ((data.admitted / data.total) * 100).toFixed(1) + "%";
-                } else {
-                    document.getElementById('metric-ratio').innerText = "100%";
-                }
+<!-- Locate your telemetry action section and replace it with this dual-button set -->
+<div class="control-panel">
+    <button id="startBtn" onclick="toggleTelemetry(true)" style="background-color: #28a745; color: white;">Start Green Telemetry</button>
+    <button id="stopBtn" onclick="toggleTelemetry(false)" style="background-color: #dc3545; color: white;" disabled>Stop Telemetry</button>
+</div>
 
-                const isPassed = data.verdict === 1;
-                const statusLabel = document.getElementById('metric-status');
-                statusLabel.innerText = isPassed ? "INGRESSING" : "THROTTLED";
-                statusLabel.className = isPassed ? "metric status-active" : "metric status-offline";
+<script>
+let telemetryInterval = null;
 
-                // Direct data mappings from calculations in the C binary layer
-                document.getElementById('metric-savings').innerText = "$" + (data.admitted * 0.45).toFixed(2);
-                document.getElementById('metric-pue').innerText = (1.020 + (data.amplitude * 0.015)).toFixed(3);
-                document.getElementById('metric-thermal').innerText = (21.5 - (data.amplitude * 25.0)).toFixed(1) + "°C";
+function toggleTelemetry(shouldStart) {
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusText = document.getElementById('gateStatus') || document.querySelector('.gate-status-block');
 
-                // Only print to console if a fresh data packet has arrived from collector.c
-                if (data.total > lastLoggedCount) {
-                    lastLoggedCount = data.total;
-                    const breedLabel = breedNames[data.breed] || "Unknown Polymorphic Breed";
-                    
-                    if (isPassed) {
-                        writeToConsole(`[PERMITTED] ${breedLabel} accepted. Size: ${data.measured_length}B | Core Resonance Capacity: ${(data.amplitude * 100).toFixed(0)}%`, 'pass');
-                    } else {
-                        writeToConsole(`[DISCARDED] ${breedLabel} failed parameters. Dropped at sluice gate line.`, 'fail');
-                    }
-                }
-            } catch 
+    if (shouldStart) {
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        if(statusText) statusText.innerText = "ACTIVE";
+        
+        // Snap poll updates cleanly every 500ms
+        telemetryInterval = setInterval(() => {
+            fetch('http://127.0.0.1:8082')
+                .then(response => response.json())
+                .then(data => {
+                    // Update your dashboard metric text IDs here
+                    if(document.getElementById('pueValue')) document.getElementById('pueValue').innerText = data.pue.toFixed(3);
+                    if(document.getElementById('opexValue')) document.getElementById('opexValue').innerText = "$" + data.opex.toFixed(2);
+                    if(document.getElementById('exhaustValue')) document.getElementById('exhaustValue').innerText = data.exhaust.toFixed(1) + "°C";
+                    if(document.getElementById('countValue')) document.getElementById('countValue').innerText = data.count;
+                })
+                .catch(err => {
+                    console.log("Pipeline read idle...", err);
+                });
+        }, 500);
+    } else {
+        // CLEAN BREAK ROUTINE: Clears the background poll completely so it never hangs
+        clearInterval(telemetryInterval);
+        telemetryInterval = null;
+        
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        if(statusText) statusText.innerText = "OFFLINE";
+        printf("[UI] Data pipeline disconnected safely.");
+    }
+}
+</script>
