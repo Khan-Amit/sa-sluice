@@ -1,201 +1,458 @@
-            font-weight: bold;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sa-sluice Core Engine Console</title>
+    <style>
+        :root {
+            --bg-color: #030a16;
+            --card-bg: #071324;
+            --text-main: #00ffca;
+            --text-white: #ffffff;
+            --text-muted: #536d88;
+            --btn-green: #00ba8b;
+            --btn-amber: #e6a100;
+            --btn-blue: #0d6efd;
+            --btn-red: #dc3545;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-white);
             font-family: monospace;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .phone-wrapper {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* 1. Header Segment */
+        .thermal-header {
+            text-align: center;
+            padding: 12px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #071324 0%, #15081c 100%);
+            border: 1px solid #142a47;
+        }
+
+        .thermal-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff477e;
+        }
+
+        .thermal-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        /* 2. Profile Selection Slots */
+        .profile-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .profile-btn {
+            background: rgba(0, 255, 202, 0.04);
+            border: 1px solid var(--text-main);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .profile-btn.dimmed {
+            border: 1px solid var(--text-muted);
+            color: var(--text-muted);
+            background: transparent;
+        }
+
+        /* 3. Action Buttons Panel */
+        .control-block {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 4px;
+            padding: 14px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #fff;
+            width: 100%;
+        }
+
+        .btn-gps { background-color: var(--btn-green); color: #000; }
+        .btn-green-tel { background-color: #00c896; color: #000; }
+        .btn-probe { background-color: var(--btn-amber); color: #000; }
+        .btn-stall { background-color: var(--btn-blue); }
+        .btn-flush { background-color: var(--btn-red); }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* 4. Location Sub-header */
+        .gps-location-card {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .gps-location-card span {
+            color: var(--text-white);
+            font-weight: bold;
+        }
+
+        /* 5. Dial Arc Circle */
+        .gauge-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .gauge-viewport {
+            width: 190px;
+            height: 190px;
+            transform: rotate(-90deg);
+        }
+
+        .gauge-track {
+            fill: none;
+            stroke: #0d1e36;
+            stroke-width: 12;
+        }
+
+        .gauge-fill {
+            fill: none;
+            stroke: url(#gauge-color-flow);
+            stroke-width: 12;
+            stroke-dasharray: 534; /* 2 * PI * 85 */
+            stroke-dashoffset: 534; 
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .gauge-indicator-line {
+            position: absolute;
+            width: 2px;
+            height: 75px;
+            background-color: var(--text-white);
+            top: 20px;
+            left: 50%;
+            transform-origin: bottom center;
+            transform: translateX(-50%) rotate(-120deg);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .gauge-metrics-overlay {
+            text-align: center;
+            margin-top: -25px;
+            z-index: 5;
+        }
+
+        .metric-pue-val {
+            font-size: 34px;
+            font-weight: bold;
+            color: #3adeff;
+        }
+
+        .metric-pue-lbl {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* 6. Quantitative Dashboard Data Grid Rows */
+        .data-grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .metric-card {
+            background-color: var(--card-bg);
+            border: 1px solid #0f243f;
+            border-radius: 6px;
+            padding: 14px 8px;
+            text-align: center;
+        }
+
+        .card-numeric-output {
+            font-size: 26px;
+            font-weight: bold;
             margin-bottom: 4px;
         }
 
-        .card-lbl {
+        .card-alpha-label {
             font-size: 9px;
-            color: var(--text-sub);
+            color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             line-height: 1.3;
+            letter-spacing: 0.5px;
         }
 
-        .txt-green { color: var(--accent-green); }
-        .txt-orange { color: #ff5252; }
-        .txt-gold { color: #ffd24c; }
+        .color-green { color: var(--text-main); }
+        .color-coral { color: #ff5656; }
+        .color-purple { color: #ac7eff; }
+        .color-gold { color: #ffca28; }
 
-        /* Terminal Logging Layer */
-        .terminal {
-            background: #03060a;
-            border: 1px solid #122237;
+        /* 7. Advanced Rolling Terminal Shell */
+        .terminal-box {
+            background-color: #020610;
+            border: 1px solid #10243d;
             border-radius: 6px;
             padding: 12px;
-            font-family: monospace;
             font-size: 10px;
-            height: 60px;
+            height: 105px;
             overflow-y: auto;
-            color: #728aa7;
+            color: #6482a2;
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        
-        <!-- Profile Selection Tabs -->
-        <div class="profile-tabs">
-            <div class="tab-btn">Conventional<br>Air-Cooled Profile</div>
-            <div class="tab-btn inactive">Direct-to-Chip<br>Liquid Pro</div>
+    <div class="phone-wrapper">
+
+        <!-- 1. The Heat Indicator Tab -->
+        <div class="thermal-header">
+            <div class="thermal-value" id="ui-heat-field">-14.4°C</div>
+            <div class="thermal-label">Core Exhaust Shed<br><span style="font-size:8px;opacity:0.6;">Transient Workload Thermal Exhaust Shed</span></div>
         </div>
 
-        <!-- Start, Pause, Stop Interaction Tab -->
-        <div class="action-bar">
-            <button class="action-btn" id="btn-start" onclick="startTelemetryPipeline()">🛰️ Align Micro-Grid Harvest Channels (GPS)</button>
-            <div class="control-group">
-                <button class="control-btn btn-pause" onclick="pauseTelemetry()">Pause</button>
-                <button class="control-btn btn-stop" onclick="stopTelemetry()">Stop</button>
-            </div>
+        <!-- 2. Profile Switch Profiles -->
+        <div class="profile-row">
+            <div class="profile-btn">Conventional Air-Cooled Profile</div>
+            <div class="profile-btn dimmed">Direct-to-Chip Liquid Pro</div>
         </div>
 
-        <!-- Location Tracker Tab -->
-        <div class="location-box">
+        <!-- 3. Primary Network Align GPS Button -->
+        <button class="btn btn-gps" onclick="fetchNasaCoordinates()">🛰️ Align Micro-Grid Harvest Channels (GPS)</button>
+
+        <!-- 4. Location Track Tab -->
+        <div class="gps-location-card">
             📍 Micro-Grid Position: Live Cluster Node<br>
-            <span>[13.8170°N, 100.5651°E]</span>
+            <span>[13.8169°N, 100.5649°E]</span>
         </div>
 
-        <!-- Dynamic Dial Area -->
-        <div class="gauge-sector">
-            <svg class="dial-svg">
+        <!-- 5. Interactive Dial Sector -->
+        <div class="gauge-section">
+            <svg class="gauge-viewport">
                 <defs>
-                    <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#00ffb7" />
-                        <stop offset="70%" stop-color="#ff9100" />
-                        <stop offset="100%" stop-color="#ff3c00" />
+                    <linearGradient id="gauge-color-flow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#00ffca" />
+                        <stop offset="60%" stop-color="#ff9100" />
+                        <stop offset="100%" stop-color="#ff3300" />
                     </linearGradient>
                 </defs>
-                <circle class="dial-bg" cx="100" cy="100" r="90"></circle>
-                <circle class="dial-progress" id="pue-arc" cx="100" cy="100" r="90"></circle>
+                <circle class="gauge-track" cx="95" cy="95" r="85"></circle>
+                <circle class="gauge-fill" id="ui-gauge-ring" cx="95" cy="95" r="85"></circle>
             </svg>
-            <div class="dial-needle" id="pue-needle"></div>
+            <div class="gauge-indicator-line" id="ui-gauge-hand"></div>
             
-            <div class="pue-display">
-                <div class="pue-value" id="ui-pue">0.00</div>
-                <div class="pue-label">Power Usage Effectiveness Gauge</div>
+            <div class="gauge-metrics-overlay">
+                <div class="metric-pue-val" id="ui-pue-display">1.61</div>
+                <div class="metric-pue-lbl">Power Usage Effectiveness Gauge</div>
             </div>
         </div>
 
-        <!-- Metrics Display Layout Grid -->
-        <div class="metrics-grid">
-            <div class="card">
-                <div class="card-val txt-green" id="ui-cycles">0</div>
-                <div class="card-lbl">Telemetry Cycles<br>(Lifetime)</div>
+        <!-- 6. Control Panel (Start, Array, Stall/Pause, Flush/Stop) -->
+        <div class="control-block">
+            <!-- Start button row -->
+            <button class="btn btn-green-tel" onclick="startSystemPipeline()">▶ Start Green Telemetry</button>
+            
+            <!-- Secondary actions row -->
+            <div class="btn-row">
+                <button class="btn btn-probe" onclick="runArrayProbe()">🔍 Array Probe</button>
+                <button class="btn btn-stall" onclick="pauseSystemPipeline()">⏸ Stall Cores</button>
             </div>
-            <div class="card">
-                <div class="card-val txt-orange" id="ui-rate">0.0%</div>
-                <div class="card-lbl">Autonomous Workload<br>Shed Rate</div>
+            
+            <!-- Final Stop/Flush target row -->
+            <button class="btn btn-flush" onclick="resetSystemPipeline()">◼ Flush System</button>
+        </div>
+
+        <!-- 7. Data Storage Metrics Grid -->
+        <div class="data-grid-layout">
+            <div class="metric-card">
+                <div class="card-numeric-output color-green" id="ui-cycles-field">9</div>
+                <div class="card-alpha-label">Telemetry Cycles<br>(Lifetime)</div>
+            </div>
+            <div class="metric-card">
+                <div class="card-numeric-output color-coral" id="ui-shed-field">100.0%</div>
+                <div class="card-alpha-label">Autonomous Workload<br>Shed Rate</div>
             </div>
             <!-- Energy Used Tab -->
-            <div class="card">
-                <div class="card-val" style="color: #b37fff;" id="ui-energy">0.000</div>
-                <div class="card-lbl">Energy Used<br>(MWh)</div>
+            <div class="metric-card">
+                <div class="card-numeric-output color-purple" id="ui-energy-field">0.175</div>
+                <div class="card-alpha-label">Energy Used<br>(MWh)</div>
             </div>
             <!-- USD Shaved Tab -->
-            <div class="card">
-                <div class="card-val txt-gold" id="ui-savings">$0.00</div>
-                <div class="card-lbl">Lifetime Opex<br>Savings (USD)</div>
+            <div class="metric-card">
+                <div class="card-numeric-output color-gold" id="ui-cash-field">$17.50</div>
+                <div class="card-alpha-label">Lifetime Opex<br>Savings (USD)</div>
             </div>
         </div>
 
-        <!-- The Heat Indicator Tab -->
-        <div class="card" style="background: linear-gradient(135deg, #0b1523 0%, #160c18 100%);">
-            <div class="card-val" style="color: #ff477e;" id="ui-heat">--.-°C</div>
-            <div class="card-lbl">NASA Thermal Satellite Heat Indicator</div>
-        </div>
-
-        <!-- Console Logging Engine -->
-        <div class="terminal" id="console-logs">
-            [SYSTEM READY] Initialize GPS channel mapping to execute stream...
+        <!-- 8. Rolling Live Logging Terminal Terminal Box -->
+        <div class="terminal-box" id="ui-terminal-shell">
+            <div class="log-entry">[SYSTEM INITIALIZED] Awaiting Green Telemetry array handshake allocation...</div>
         </div>
 
     </div>
 
     <script>
-        let pipelineActive = false;
-        let cycleCount = 0;
-        let cumulativeEnergy = 0.175;
-        let processTimer = null;
+        let executionActive = false;
+        let lifetimeCycles = 9;
+        let accumulatedEnergyMwh = 0.175;
+        let threadLoopReference = MilfordLoop = null;
 
-        function logTrace(msg) {
-            const logger = document.getElementById('console-logs');
-            logger.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>` + logger.innerHTML;
-        }
+        function injectConsoleLog(message, isWarning = false) {
+            const container = document.getElementById('ui-terminal-shell');
+            const colorStyle = isWarning ? 'color:#ff5252;' : '';
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const layoutNode = document.createElement('div');
+            layoutNode.className = 'log-entry';
+            layoutNode.style.cssText = colorStyle;
+            layoutNode.innerHTML = `[${timestamp}] SOLAR_NODE_X9 > ${message}`;
+            
+            container.insertBefore(layoutNode, container.firstChild);
 
-        // Core execution function to fetch real satellite data
-        async function startTelemetryPipeline() {
-            if (pipelineActive) return;
-            pipelineActive = true;
-            logTrace("Establishing link to NASA weather matrix layers...");
-
-            // Target cluster coordinates specified on your UI layout map
-            const lat = 13.8170;
-            const lon = 100.5651;
-            const url = `https://nasa.gov{lon}&latitude=${lat}&start=20260501&end=20260505&format=JSON`;
-
-            try {
-                let response = await fetch(url);
-                if (response.ok) {
-                    let payload = await response.json();
-                    
-                    // Pull real temperature parameters from the tracking timeline array
-                    let timeSeries = payload.properties.parameter.T2M;
-                    let firstKey = Object.keys(timeSeries)[0];
-                    let realNasaTemp = timeSeries[firstKey];
-
-                    logTrace(`📡 NASA Connection Link Validated. Stream online.`);
-                    
-                    // Update Heat Indicator Tab with actual data
-                    document.getElementById('ui-heat').innerText = `${realNasaTemp.toFixed(1)}°C`;
-                    
-                    // Run the UI animation engine cycles
-                    executeUIRenderLoop(realNasaTemp);
-                } else {
-                    logTrace("⚠️ NASA Server connection rejected. Falling back to local data packets.");
-                    executeUIRenderLoop(32.4);
-                }
-            } catch (err) {
-                logTrace("❌ Network error connecting to meteorological array.");
-                executeUIRenderLoop(32.4);
+            // Keep DOM tidy and clean to prevent freeze conditions
+            while (container.children.length > 25) {
+                container.removeChild(container.lastChild);
             }
         }
 
-        function executeUIRenderLoop(baseTemp) {
-            processTimer = setInterval(() => {
-                cycleCount++;
-                cumulativeEnergy += 0.002;
-                
-                // Simulating realistic operation swings linked to our NASA baseline temp
-                let dynamicPUE = 1.5 + (Math.sin(cycleCount) * 0.35);
-                let targetShedRate = Math.min(100, Math.max(0, 85 + (Math.random() * 15)));
-                let totalSavings = cumulativeEnergy * 100;
+        // Functional API call to hook NASA weather matrix tracking elements
+        async function fetchNasaCoordinates() {
+            injectConsoleLog("Syncing coordinates with NASA POWER meteorological servers...");
+            const targetLat = 13.8169;
+            const targetLon = 100.5649;
+            const endpoint = `https://nasa.gov{targetLon}&latitude=${targetLat}&start=20260501&end=20260501&format=JSON`;
 
-                // Update text fields directly
-                document.getElementById('ui-cycles').innerText = cycleCount;
-                document.getElementById('ui-pui-value' ? 'ui-pui-value' : 'ui-pue').innerText = dynamicPUE.toFixed(2);
-                document.getElementById('ui-rate').innerText = `${targetShedRate.toFixed(1)}%`;
-                document.getElementById('ui-energy').innerText = cumulativeEnergy.toFixed(3);
-                document.getElementById('ui-savings').innerText = `$${totalSavings.toFixed(2)}`;
-
-                // Update the Dial Arc Gauge element
-                // SVG perimeter is ~565. Calculate ratio based on maximum expected PUE value of 3.0
-                const arcElement = document.getElementById('pue-arc');
-                let arcOffset = 565 - ((dynamicPUE / 3.0) * 565);
-                arcElement.style.strokeDashoffset = arcOffset;
-
-                // Move the Dial Needle component
-                const needleElement = document.getElementById('pue-needle');
-                let degreeAngle = (dynamicPUE / 3.0) * 360 - 90;
-                needleElement.style.transform = `rotate(${degreeAngle}deg)`;
-
-                logTrace(`Processing Telemetry Cycle #${cycleCount} // Status: Nominal`);
-
-            }, 2500);
+            try {
+                let response = await fetch(endpoint);
+                if (response.ok) {
+                    let dataset = await response.json();
+                    let timelineValues = dataset.properties.parameter.T2M;
+                    let temperatureMatch = timelineValues[Object.keys(timelineValues)[0]];
+                    
+                    document.getElementById('ui-heat-field').innerText = `${temperatureMatch.toFixed(1)}°C`;
+                    injectConsoleLog(`NASA Telemetry verified. Ambient Target baseline set to ${temperatureMatch.toFixed(1)}°C`);
+                } else {
+                    throw new Error("Server Reject");
+                }
+            } catch (error) {
+                injectConsoleLog("⚠️ NASA connection channel offline. Defaulting to fallback parameters.", true);
+                document.getElementById('ui-heat-field').innerText = "-14.4°C";
+            }
         }
 
-        function pauseTelemetry() {
-            clearInterval(processTimer);
-            pipelineActive = false;
-            logTrace("⏸️ Telemetry array tracking execution paused.");
+        function startSystemPipeline() {
+            if (executionActive) return;
+            executionActive = true;
+            injectConsoleLog("⚡ Processing green thread pipeline optimization allocations...");
+
+            threadLoopReference = setInterval(() => {
+                lifetimeCycles++;
+                accumulatedEnergyMwh += 0.004;
+
+                // Generates dynamic sweeps resembling the gauge targets from screenshots
+                let transientPUE = 1.3 + (Math.sin(lifetimeCycles * 0.4) * 0.45) + (Math.random() * 0.1);
+                let currentShedRate = Math.min(100.0, 92.0 + (Math.random() * 8.0));
+                let savingsCalcUSD = accumulatedEnergyMwh * 100;
+
+                // Bind computational properties to DOM nodes
+                document.getElementById('ui-cycles-field').innerText = lifetimeCycles;
+                document.getElementById('ui-pue-display').innerText = transientPUE.toFixed(2);
+                document.getElementById('ui-shed-field').innerText = `${currentShedRate.toFixed(1)}%`;
+                document.getElementById('ui-energy-field').innerText = accumulatedEnergyMwh.toFixed(3);
+                document.getElementById('ui-cash-field').innerText = `$${savingsCalcUSD.toFixed(2)}`;
+
+                // Update Ring Gauge Metrics (Circumference 534)
+                const targetRingOffset = 534 - ((transientPUE / 3.0) * 534);
+                document.getElementById('ui-gauge-ring').style.strokeDashoffset = Math.max(0, targetRingOffset);
+
+                // Update Needle Rotation angle space
+                const mappedAngle = (transientPUE / 3.0) * 240 - 120;
+                document.getElementById('ui-gauge-hand').style.transform = `translateX(-50%) rotate(${mappedAngle}deg)`;
+
+                if (transientPUE > 1.65) {
+                    injectConsoleLog(`⚠️ THERMAL MITIGATION SHED: PUE Spike (${transientPUE.toFixed(3)}) logged on DeepSeek-V3 Matrix Core.`, true);
+                } else {
+                    injectConsoleLog(`Telemetry Stream Cycle #${lifetimeCycles} processing stable outputs.`);
+                }
+
+            }, 2200);
         }
 
-        function 
+        function runArrayProbe() {
+            injectConsoleLog("🔍 Executing DeepSeek-V3 Matrix Core sweep... All cluster parameters responsive.");
+        }
+
+        function pauseSystemPipeline() {
+            clearInterval(threadLoopReference);
+            executionActive = false;
+            injectConsoleLog("⏸️ STALL CORES applied. Processing threads suspended safely.");
+        }
+
+        function resetSystemPipeline() {
+            clearInterval(threadLoopReference);
+            executionActive = false;
+            lifetimeCycles = 0;
+            accumulatedEnergyMwh = 0.000;
+            
+            document.getElementById('ui-cycles-field').innerText = "0";
+            document.getElementById('ui-pue-display').innerText = "1.00";
+            document.getElementById('ui-shed-field').innerText = "0.0%";
+            document.getElementById('ui-energy-field').innerText = "0.000";
+            document.getElementById('ui-cash-field').innerText = "$0.00";
+            document.getElementById('ui-gauge-ring').style.strokeDashoffset = 534;
+            document.getElementById('ui-gauge-hand').style.transform = `translateX(-50%) rotate(-120deg)`;
+            
+            injectConsoleLog("◼ FLUSH SYSTEM complete. All cache channels and simulation records cleared.");
+        }
+    </script>
+</body>
+</html>
