@@ -1,132 +1,86 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
-#define PORT 8082
-#define BUFFER_SIZE 2048
+// Live Public Mirror streaming real-world seismic/environmental event feeds
+#define REMOTE_HOST "earthquake.usgs.gov"
+#define REMOTE_PORT 80
+#define CORE_PORT 8082
 
-// System Taxonomy Framework
-typedef enum { DOMAIN_DOG = 1, DOMAIN_BIRD = 2, DOMAIN_COW = 3, DOMAIN_GOAT = 4 } SluiceDomain;
-typedef enum { CLASS_DOMESTIC = 10, CLASS_WILD = 20 } SluiceClass;
+int main(void) {
+    int remote_fd, core_fd;
+    struct hostent *server;
+    struct sockaddr_in server_addr, core_addr;
+    char request[] = "GET /earthquakes/feed/v1.0/summary/all_hour.geojson HTTP/1.1\r\n"
+                     "Host: earthquake.usgs.gov\r\n"
+                     "User-Agent: SluiceBenchHarvester/1.0\r\n"
+                     "Connection: close\r\n\r\n";
 
-typedef struct {
-    float pue;
-    unsigned long cycle_count;
-    unsigned long noise_pruned;
-    int is_stalled;
-} SystemMetrics;
+    printf("====================================================\n");
+    printf("     SA-SLUICE LIVE EARTHDATA EXTRACTION BLOCK      \n");
+    printf("====================================================\n");
 
-volatile int is_engine_active = 1;
-pthread_mutex_t metric_lock = PTHREAD_MUTEX_INITIALIZER;
-SystemMetrics g_metrics = {1.028, 0, 0, 0};
-
-// Taxonomic Classification Router Engine
-void execute_taxonomic_route(int domain, int subclass) {
-    if (domain == DOMAIN_BIRD) {
-        if (subclass == CLASS_WILD) {
-            // Internal routing execution step to EAGLE bank
-            volatile int target = 102; 
-        } else {
-            // Internal routing execution step to PARROT bank
-            volatile int target = 101;
-        }
-    }
-}
-
-void* server_broker_kernel(void* arg) {
-    (void)arg;
-    int server_fd, client_socket;
-    struct sockaddr_in address;
-    int opt = 1, addr_len = sizeof(address);
-
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0 || listen(server_fd, 20) < 0) {
-        printf("[Fatal] Allocation of port 8082 failed.\n");
-        pthread_exit(NULL);
-    }
-
-    printf("[Sluice Bench Core] Local Virtual Engine Listening on Port %d\n", PORT);
-
-    while (is_engine_active) {
-        client_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addr_len);
-        if (client_socket < 0) continue;
-
-        char rx_buf[BUFFER_SIZE] = {0};
-        recv(client_socket, rx_buf, BUFFER_SIZE - 1, 0);
-
-        // CORS Authorization Handshake
-        if (strncmp(rx_buf, "OPTIONS", 7) == 0) {
-            char cors[] = "HTTP/1.1 204 No Content\r\n"
-                          "Access-Control-Allow-Origin: *\r\n"
-                          "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-                          "Access-Control-Allow-Headers: Content-Type\r\n"
-                          "Connection: close\r\n\r\n";
-            send(client_socket, cors, strlen(cors), 0);
-            close(client_socket);
+    while (1) {
+        printf("[Live Feed] Connecting to global USGS satellite/sensor node...\n");
+        
+        server = gethostbyname(REMOTE_HOST);
+        if (server == NULL) {
+            fprintf(stderr, "[Error] DNS lookup failed for live feed host.\n");
+            sleep(5);
             continue;
         }
 
-        pthread_mutex_lock(&metric_lock);
-        
-        // Route Evaluation Parsing
-        if (strstr(rx_buf, "/stall") != NULL) {
-            g_metrics.is_stalled = 1;
-            printf("[Control Signal] System transitioned to STALLED/STANDBY mode.\n");
-        } else if (strstr(rx_buf, "/telemetry") != NULL || strstr(rx_buf, "GET / ") != NULL) {
-            g_metrics.is_stalled = 0;
+        remote_fd = socket(AF_INET, SOCK_STREAM, 0);
+        memset(&server_addr, 0, sizeof(server_addr));
+        server_addr.sin_family = AF_INET;
+        memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+        server_addr.sin_port = htons(REMOTE_PORT);
+
+        if (connect(remote_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+            printf("[Error] Live remote network feed unreachable. Retrying...\n");
+            close(remote_fd);
+            sleep(5);
+            continue;
         }
 
-        // Parse Incoming Raw Telemetry Inputs from the Collector
-        if (strstr(rx_buf, "INPUT_STREAM") != NULL) {
-            if (!g_metrics.is_stalled) {
-                g_metrics.cycle_count += 50;     // Mock packet block ingestion
-                g_metrics.noise_pruned += 2450;  // 98% Noise rejection mapping
-                g_metrics.pue = 1.020 + ((float)(rand() % 10) / 1000.0f);
+        printf("[Live Feed] Connected! Pumping global geo-stream payload data...\n");
+        send(remote_fd, request, strlen(request), 0);
+
+        // Connect to your local Sluice Core Engine to pass the data
+        core_fd = socket(AF_INET, SOCK_STREAM, 0);
+        core_addr.sin_family = AF_INET;
+        core_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        core_addr.sin_port = htons(CORE_PORT);
+
+        if (connect(core_fd, (struct sockaddr *)&core_addr, sizeof(core_addr)) >= 0) {
+            char chunk_buffer[4096];
+            int bytes_received;
+
+            // Stream real packets straight from the internet source into your core engine
+            while ((bytes_received = recv(remote_fd, chunk_buffer, sizeof(chunk_buffer) - 1, 0)) > 0) {
+                chunk_buffer[bytes_received] = '\0';
                 
-                // Execute taxonomic branching logic inside the server slice
-                execute_taxonomic_route(DOMAIN_BIRD, CLASS_WILD);
+                // Package the live text records inside a custom Sluice framework header
+                char outbound_payload[8192];
+                snprintf(outbound_payload, sizeof(outbound_payload), 
+                         "POST /LIVE_STREAM HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 
+                         bytes_received, chunk_buffer);
+                
+                send(core_fd, outbound_payload, strlen(outbound_payload), 0);
+                usleep(50000); // 50ms smooth data flow rate
             }
+            close(core_fd);
+        } else {
+            printf("[Warning] Local sa_sluice_core engine is offline. Start it on port 8082.\n");
         }
 
-        char payload[512];
-        snprintf(payload, sizeof(payload), 
-                 "{\"pue\": %.3f, \"cycles\": %lu, \"pruned\": %lu, \"state\": %d}", 
-                 g_metrics.pue, g_metrics.cycle_count, g_metrics.noise_pruned, g_metrics.is_stalled);
-        
-        pthread_mutex_unlock(&metric_lock);
-
-        char response[1024];
-        snprintf(response, sizeof(response),
-                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
-                 "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n%s", payload);
-
-        send(client_socket, response, strlen(response), 0);
-        close(client_socket); // Strict Teardown to prevent network lag
+        close(remote_fd);
+        printf("[Live Feed] Batch complete. Refreshing stream cycle in 10 seconds...\n");
+        sleep(10);
     }
-    close(server_fd);
-    pthread_exit(NULL);
-}
-
-int main(void) {
-    pthread_t net_thread;
-    srand(time(NULL));
-    pthread_create(&net_thread, NULL, server_broker_kernel, NULL);
-    
-    printf("[System Active] Press [ENTER] in this window to stop the software stack safely.\n");
-    getchar();
-
-    is_engine_active = 0;
-    pthread_join(net_thread, NULL);
-    pthread_mutex_destroy(&metric_lock);
     return 0;
 }
