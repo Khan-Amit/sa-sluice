@@ -7,115 +7,126 @@
 #include <netinet/in.h>
 
 #define PORT 8082
+#define BUFFER_SIZE 2048
+
+// System Taxonomy Framework
+typedef enum { DOMAIN_DOG = 1, DOMAIN_BIRD = 2, DOMAIN_COW = 3, DOMAIN_GOAT = 4 } SluiceDomain;
+typedef enum { CLASS_DOMESTIC = 10, CLASS_WILD = 20 } SluiceClass;
 
 typedef struct {
-    float pue;                 
-    double lifetime_opex;      
-    float transient_exhaust;   
-    int scrutinized_count;     
-    int admittance_ratio;      
-} TelemetryData;
+    float pue;
+    unsigned long cycle_count;
+    unsigned long noise_pruned;
+    int is_stalled;
+} SystemMetrics;
 
-volatile int is_pipeline_active = 1;
-pthread_mutex_t data_lock = PTHREAD_MUTEX_INITIALIZER;
-TelemetryData system_metrics = {1.000, 0.00, 24.5, 0, 100};
+volatile int is_engine_active = 1;
+pthread_mutex_t metric_lock = PTHREAD_MUTEX_INITIALIZER;
+SystemMetrics g_metrics = {1.028, 0, 0, 0};
 
-void* quantum_sluice_simulator(void* arg) {
-    (void)arg;
-    while (is_pipeline_active) {
-        pthread_mutex_lock(&data_lock);
-        system_metrics.scrutinized_count++;
-        system_metrics.transient_exhaust = 36.4f + ((float)(rand() % 40) / 10.0f);
-        system_metrics.lifetime_opex += 0.05;
-        system_metrics.pue = 1.000 + ((float)(rand() % 4) / 1000.0f);
-        pthread_mutex_unlock(&data_lock);
-        usleep(250000); 
+// Taxonomic Classification Router Engine
+void execute_taxonomic_route(int domain, int subclass) {
+    if (domain == DOMAIN_BIRD) {
+        if (subclass == CLASS_WILD) {
+            // Internal routing execution step to EAGLE bank
+            volatile int target = 102; 
+        } else {
+            // Internal routing execution step to PARROT bank
+            volatile int target = 101;
+        }
     }
-    pthread_exit(NULL);
 }
 
-void* dashboard_ipc_server(void* arg) {
+void* server_broker_kernel(void* arg) {
     (void)arg;
-    int server_fd, new_socket;
+    int server_fd, client_socket;
     struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        pthread_exit(NULL);
-    }
-    
+    int opt = 1, addr_len = sizeof(address);
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    
+
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
-    
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-        close(server_fd);
+
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0 || listen(server_fd, 20) < 0) {
+        printf("[Fatal] Allocation of port 8082 failed.\n");
         pthread_exit(NULL);
     }
-    
-    if (listen(server_fd, 10) < 0) {
-        close(server_fd);
-        pthread_exit(NULL);
-    }
-    
-    while (is_pipeline_active) {
-        new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
-        if (new_socket < 0) continue;
-        
-        char request_buffer[1024] = {0};
-        recv(new_socket, request_buffer, sizeof(request_buffer) - 1, 0);
-        
-        // Handle browser CORS preflight check requests instantly without blocking
-        if (strncmp(request_buffer, "OPTIONS", 7) == 0) {
-            char options_response[] = 
-                "HTTP/1.1 204 No Content\r\n"
-                "Access-Control-Allow-Origin: *\r\n"
-                "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
-                "Access-Control-Allow-Headers: Content-Type\r\n"
-                "Connection: close\r\n\r\n";
-            send(new_socket, options_response, strlen(options_response), 0);
-            close(new_socket);
+
+    printf("[Sluice Bench Core] Local Virtual Engine Listening on Port %d\n", PORT);
+
+    while (is_engine_active) {
+        client_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addr_len);
+        if (client_socket < 0) continue;
+
+        char rx_buf[BUFFER_SIZE] = {0};
+        recv(client_socket, rx_buf, BUFFER_SIZE - 1, 0);
+
+        // CORS Authorization Handshake
+        if (strncmp(rx_buf, "OPTIONS", 7) == 0) {
+            char cors[] = "HTTP/1.1 204 No Content\r\n"
+                          "Access-Control-Allow-Origin: *\r\n"
+                          "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                          "Access-Control-Allow-Headers: Content-Type\r\n"
+                          "Connection: close\r\n\r\n";
+            send(client_socket, cors, strlen(cors), 0);
+            close(client_socket);
             continue;
         }
+
+        pthread_mutex_lock(&metric_lock);
         
-        char payload[256];
-        pthread_mutex_lock(&data_lock);
-        snprintf(payload, sizeof(payload),
-                 "{\"pue\": %.3f, \"opex\": %.2f, \"exhaust\": %.1f, \"count\": %d, \"admittance\": %d}",
-                 system_metrics.pue, system_metrics.lifetime_opex, 
-                 system_metrics.transient_exhaust, system_metrics.scrutinized_count, 
-                 system_metrics.admittance_ratio);
-        pthread_mutex_unlock(&data_lock);
+        // Route Evaluation Parsing
+        if (strstr(rx_buf, "/stall") != NULL) {
+            g_metrics.is_stalled = 1;
+            printf("[Control Signal] System transitioned to STALLED/STANDBY mode.\n");
+        } else if (strstr(rx_buf, "/telemetry") != NULL || strstr(rx_buf, "GET / ") != NULL) {
+            g_metrics.is_stalled = 0;
+        }
+
+        // Parse Incoming Raw Telemetry Inputs from the Collector
+        if (strstr(rx_buf, "INPUT_STREAM") != NULL) {
+            if (!g_metrics.is_stalled) {
+                g_metrics.cycle_count += 50;     // Mock packet block ingestion
+                g_metrics.noise_pruned += 2450;  // 98% Noise rejection mapping
+                g_metrics.pue = 1.020 + ((float)(rand() % 10) / 1000.0f);
+                
+                // Execute taxonomic branching logic inside the server slice
+                execute_taxonomic_route(DOMAIN_BIRD, CLASS_WILD);
+            }
+        }
+
+        char payload[512];
+        snprintf(payload, sizeof(payload), 
+                 "{\"pue\": %.3f, \"cycles\": %lu, \"pruned\": %lu, \"state\": %d}", 
+                 g_metrics.pue, g_metrics.cycle_count, g_metrics.noise_pruned, g_metrics.is_stalled);
         
-        char http_response[1024];
-        snprintf(http_response, sizeof(http_response),
-                 "HTTP/1.1 200 OK\r\n"
-                 "Content-Type: application/json\r\n"
-                 "Access-Control-Allow-Origin: *\r\n"
-                 "Connection: close\r\n\r\n"
-                 "%s", payload);
-                 
-        send(new_socket, http_response, strlen(http_response), 0);
-        close(new_socket); // Force clean socket tear-down to avoid page freezes
+        pthread_mutex_unlock(&metric_lock);
+
+        char response[1024];
+        snprintf(response, sizeof(response),
+                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                 "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n%s", payload);
+
+        send(client_socket, response, strlen(response), 0);
+        close(client_socket); // Strict Teardown to prevent network lag
     }
     close(server_fd);
     pthread_exit(NULL);
 }
 
 int main(void) {
-    pthread_t simulator_thread, ipc_thread;
-    pthread_create(&simulator_thread, NULL, quantum_sluice_simulator, NULL);
-    pthread_create(&ipc_thread, NULL, dashboard_ipc_server, NULL);
+    pthread_t net_thread;
+    srand(time(NULL));
+    pthread_create(&net_thread, NULL, server_broker_kernel, NULL);
     
-    printf("[Core Setup] Server listening on port %d without hang conditions. Press ENTER to close.\n", PORT);
+    printf("[System Active] Press [ENTER] in this window to stop the software stack safely.\n");
     getchar();
-    
-    is_pipeline_active = 0;
-    pthread_join(ipc_thread, NULL);
-    pthread_join(simulator_thread, NULL);
-    pthread_mutex_destroy(&data_lock);
+
+    is_engine_active = 0;
+    pthread_join(net_thread, NULL);
+    pthread_mutex_destroy(&metric_lock);
     return 0;
 }
