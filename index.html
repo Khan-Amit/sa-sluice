@@ -1,46 +1,80 @@
-<!-- Locate your telemetry action section and replace it with this dual-button set -->
-<div class="control-panel">
-    <button id="startBtn" onclick="toggleTelemetry(true)" style="background-color: #28a745; color: white;">Start Green Telemetry</button>
-    <button id="stopBtn" onclick="toggleTelemetry(false)" style="background-color: #dc3545; color: white;" disabled>Stop Telemetry</button>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SA-Sluice Dashboard Control Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
+        .dashboard { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 8px; width: 150px; border: 1px solid #333; }
+        .status-block { font-size: 24px; font-weight: bold; margin: 20px 0; color: #ff3333; }
+        .status-block.active { color: #28a745; }
+        button { font-size: 16px; padding: 10px 20px; margin: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #startBtn { background-color: #28a745; color: white; }
+        #stopBtn { background-color: #dc3545; color: white; }
+        button:disabled { background-color: #555 !important; color: #aaa; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h1>SA-SLUICE QUANTUM ENGINE GATEWAY</h1>
+    
+    <!-- Gate Status Display Block -->
+    <div id="gateStatus" class="status-block">OFFLINE / STANDBY</div>
+
+    <div class="control-panel">
+        <button id="startBtn" onclick="toggleTelemetry(true)">Start Green Telemetry</button>
+        <!-- FIXED: Added the missing Stop Tab Button to prevent network hanging -->
+        <button id="stopBtn" onclick="toggleTelemetry(false)" disabled>Stop Telemetry</button>
+    </div>
+
+    <div class="dashboard">
+        <div class="card"><h3>PUE</h3><div id="pueValue">1.000</div></div>
+        <div class="card"><h3>OPEX Savings</h3><div id="opexValue">$0.00</div></div>
+        <div class="card"><h3>Exhaust Temp</h3><div id="exhaustValue">0.0°C</div></div>
+        <div class="card"><h3>Count</h3><div id="countValue">0</div></div>
+    </div>
 
 <script>
-let telemetryInterval = null;
+let telemetryStream = null;
 
-function toggleTelemetry(shouldStart) {
+function toggleTelemetry(start) {
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
-    const statusText = document.getElementById('gateStatus') || document.querySelector('.gate-status-block');
+    const statusText = document.getElementById('gateStatus');
 
-    if (shouldStart) {
+    if (start) {
         startBtn.disabled = true;
         stopBtn.disabled = false;
-        if(statusText) statusText.innerText = "ACTIVE";
+        statusText.innerText = "ACTIVE";
+        statusText.className = "status-block active";
         
-        // Snap poll updates cleanly every 500ms
-        telemetryInterval = setInterval(() => {
+        // Poll the server backend on port 8082 every 500ms
+        telemetryStream = setInterval(() => {
             fetch('http://127.0.0.1:8082')
-                .then(response => response.json())
+                .then(res => res.json())
                 .then(data => {
-                    // Update your dashboard metric text IDs here
-                    if(document.getElementById('pueValue')) document.getElementById('pueValue').innerText = data.pue.toFixed(3);
-                    if(document.getElementById('opexValue')) document.getElementById('opexValue').innerText = "$" + data.opex.toFixed(2);
-                    if(document.getElementById('exhaustValue')) document.getElementById('exhaustValue').innerText = data.exhaust.toFixed(1) + "°C";
-                    if(document.getElementById('countValue')) document.getElementById('countValue').innerText = data.count;
+                    document.getElementById('pueValue').innerText = data.pue.toFixed(3);
+                    document.getElementById('opexValue').innerText = "$" + data.opex.toFixed(2);
+                    document.getElementById('exhaustValue').innerText = data.exhaust.toFixed(1) + "°C";
+                    document.getElementById('countValue').innerText = data.count;
                 })
                 .catch(err => {
-                    console.log("Pipeline read idle...", err);
+                    console.log("Waiting for backend sync...", err);
                 });
         }, 500);
     } else {
-        // CLEAN BREAK ROUTINE: Clears the background poll completely so it never hangs
-        clearInterval(telemetryInterval);
-        telemetryInterval = null;
+        // FIXED: Clear interval entirely so the frontend stops hitting the backend instantly
+        clearInterval(telemetryStream);
+        telemetryStream = null;
         
         startBtn.disabled = false;
         stopBtn.disabled = true;
-        if(statusText) statusText.innerText = "OFFLINE";
-        printf("[UI] Data pipeline disconnected safely.");
+        statusText.innerText = "OFFLINE / STANDBY";
+        statusText.className = "status-block";
     }
 }
 </script>
+</body>
+</html>
