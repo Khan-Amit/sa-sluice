@@ -12,8 +12,8 @@
             padding: 20px; 
             margin: 0;
         }
-        h2 { color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
-        .system-info { margin-bottom: 20px; font-size: 14px; color: #94a3b8; }
+        h2 { color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 10px; margin-bottom: 5px; }
+        .system-info { margin-bottom: 20px; font-size: 14px; color: #94a3b8; line-height: 1.5; }
         .grid { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
@@ -30,7 +30,7 @@
         .log-container { 
             background: #030712; 
             border: 1px solid #111827; 
-            height: 380px; 
+            height: 400px; 
             overflow-y: auto; 
             padding: 15px; 
             border-radius: 4px;
@@ -45,8 +45,9 @@
 
     <h2>🌊 sa-sluice // Infrastructure Screening Dashboard</h2>
     <div class="system-info">
-        <strong>Concept Builder:</strong> © Seliim Ahmed (seliim.ahmed@gmail.com) <br>
-        <strong>Architecture:</strong> Polymorphic Zero-Copy Ingestion Gatekeeper
+        <strong>Developer / Concept Builder:</strong> © Seliim Ahmed (seliim.ahmed@gmail.com) <br>
+        <strong>Architecture:</strong> Polymorphic Zero-Copy Ingestion Gatekeeper <br>
+        <strong>Core Philosophy:</strong> "All dogs are dogs, but their breeds are different."
     </div>
     
     <div class="grid">
@@ -64,7 +65,7 @@
         </div>
     </div>
 
-    <h4>Raw Real Data Wire Feed</h4>
+    <h4>Raw Real Data Wire Feed (Translated via Language Bridge)</h4>
     <div id="telemetry-log" class="log-container"></div>
 
     <script>
@@ -72,31 +73,37 @@
         let admittedPackets = 0;
         const logBox = document.getElementById('telemetry-log');
 
+        // Connects directly to the Language Bridge (bridge.c) running on port 8081
+        const BRIDGE_ENDPOINT = "http://127.0.0.1:8081"; 
+
         const breedNames = {
             1: "Linux System Log Cluster",
             2: "Raw HTML Stream Parser",
             3: "Compiled C++ Memory Payload"
         };
 
-        // Processes actual server output data strings
-        function handleIncomingTelemetry(rawJsonString) {
+        // Asynchronously requests the translated data payload from your C bridge
+        async function fetchRealSluiceTelemetry() {
             try {
-                const data = JSON.parse(rawJsonString);
-                totalPackets++;
+                const response = await fetch(BRIDGE_ENDPOINT);
+                if (!response.ok) throw new Error("Bridge Offline");
                 
+                const data = await response.json();
+                
+                totalPackets++;
                 const isPassed = data.verdict === 1;
                 if (isPassed) admittedPackets++;
 
-                // Update UI Metrics Elements
+                // Update UI Metrics Elements in real time
                 document.getElementById('metric-total').innerText = totalPackets;
                 document.getElementById('metric-ratio').innerText = ((admittedPackets / totalPackets) * 100).toFixed(1) + "%";
                 document.getElementById('metric-status').innerText = isPassed ? "PROCESSING INGRESS" : "THROTTLED";
 
-                // Parse the specific data breed structure
+                // Identify the incoming breed profile
                 const breedLabel = breedNames[data.breed] || "Unknown Polymorphic Breed";
                 const timestamp = new Date().toLocaleTimeString();
 
-                // Format explicit layout depending on the screening outcome
+                // Format explicit wire output depending on screening results
                 let logEntry = "";
                 if (isPassed) {
                     logEntry = `[${timestamp}] <span class="pass">[PERMITTED]</span> ${breedLabel} passed screening. Size: ${data.measured_length}B | Core Resonance Capacity: ${(data.amplitude * 100).toFixed(0)}%`;
@@ -106,12 +113,14 @@
 
                 logBox.innerHTML += logEntry + "<br>";
                 logBox.scrollTop = logBox.scrollHeight;
-            } catch (e) {
-                console.error("Malformed binary string sequence dropped.", e);
+            } catch (error) {
+                document.getElementById('metric-status').innerText = "DISCONNECTED";
             }
         }
 
-        console.log("Telemetry Interface Armed. Ready to read physical server sockets.");
+        // Continually polls your infrastructure data loop every 1000ms (1 second)
+        setInterval(fetchRealSluiceTelemetry, 1000);
+        console.log("Telemetry Interface Armed. Polling language bridge on port 8081.");
     </script>
 </body>
 </html>
